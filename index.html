@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Xác thực - FASTRAFFIC</title>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+    <style>
+        :root { --primary: #e94560; }
+        body { font-family: sans-serif; background: #f0f2f5; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+        .box { background: #fff; padding: 30px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); width: 320px; text-align: center; }
+        
+        .brand-name { 
+            font-size: 32px; 
+            font-weight: 900; 
+            margin-bottom: 5px; 
+            background: linear-gradient(45deg, #e94560, #ff8a00);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            letter-spacing: 1px;
+        }
+        
+        #title { margin-top: 0; margin-bottom: 20px; font-size: 16px; color: #444; }
+        .input-group { position: relative; margin: 8px 0; }
+        input { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; outline: none; }
+        .show-btn { position: absolute; right: 10px; top: 10px; background: #eee; border: none; padding: 5px; border-radius: 4px; font-size: 10px; cursor: pointer; }
+        button.main { width: 100%; padding: 12px; background: var(--primary); color: #fff; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; margin-top: 10px; }
+        .link { margin-top: 15px; font-size: 13px; color: #666; cursor: pointer; }
+        .forgot { display: block; text-align: right; font-size: 12px; color: #888; margin-bottom: 10px; text-decoration: none; cursor: pointer; }
+    </style>
+</head>
+<body>
+<div class="box">
+    <div class="brand-name">FASTRAFFIC</div>
+    <h2 id="title">ĐĂNG NHẬP</h2>
+    
+    <input type="email" id="email" placeholder="Email của bạn">
+    
+    <div class="input-group">
+        <input type="password" id="pass" placeholder="Mật khẩu">
+        <button class="show-btn" onclick="togglePass()">HIỆN</button>
+    </div>
+
+    <a class="forgot" onclick="forgotPass()">Quên mật khẩu?</a>
+
+    <button class="main" onclick="handleAuth()" id="btnSubmit">ĐĂNG NHẬP</button>
+    
+    <div id="error" style="color: red; font-size: 12px; margin-top: 10px; min-height: 15px;"></div>
+    
+    <div class="link" onclick="switchMode()" id="toggleTxt">Chưa có tài khoản? Đăng ký ngay</div>
+</div>
+
+<script>
+    const firebaseConfig = {
+        apiKey: "AIzaSyCmLLI3wHywsLB33QmJDSgUzQcfS3GJgso",
+        authDomain: "haha-ba0bc.firebaseapp.com",
+        projectId: "haha-ba0bc",
+        storageBucket: "haha-ba0bc.firebasestorage.app",
+        messagingSenderId: "748739861694",
+        appId: "1:748739861694:web:492d2a164fec150840d2ef",
+        measurementId: "G-DFQ8DYRZ1G",
+        databaseURL: "https://haha-ba0bc-default-rtdb.asia-southeast1.firebasedatabase.app"
+    };
+    if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+
+    let isLogin = true;
+
+    function togglePass() {
+        const p = document.getElementById("pass");
+        const btn = event.target;
+        p.type = p.type === "password" ? "text" : "password";
+        btn.innerText = p.type === "password" ? "HIỆN" : "ẨN";
+    }
+
+    function switchMode() {
+        isLogin = !isLogin;
+        document.getElementById("title").innerText = isLogin ? "ĐĂNG NHẬP" : "ĐĂNG KÝ";
+        document.getElementById("btnSubmit").innerText = isLogin ? "ĐĂNG NHẬP" : "ĐĂNG KÝ";
+        document.getElementById("toggleTxt").innerText = isLogin ? "Chưa có tài khoản? Đăng ký ngay" : "Đã có tài khoản? Đăng nhập";
+    }
+
+    async function forgotPass() {
+        const email = document.getElementById("email").value;
+        if (!email) return alert("Vui lòng nhập Email trước!");
+        try {
+            await firebase.auth().sendPasswordResetEmail(email);
+            alert("Đã gửi link đặt lại mật khẩu vào Email của bạn!");
+        } catch (e) { alert("Lỗi: " + e.message); }
+    }
+
+    async function handleAuth() {
+        const email = document.getElementById("email").value;
+        const pass = document.getElementById("pass").value;
+        const err = document.getElementById("error");
+        
+        if(!email || !pass) return err.innerText = "Vui lòng điền đủ!";
+        err.innerText = "Đang xử lý...";
+
+        try {
+            if (isLogin) {
+                await firebase.auth().signInWithEmailAndPassword(email, pass);
+                window.location.href = "home.html";
+            } else {
+                const res = await firebase.auth().createUserWithEmailAndPassword(email, pass);
+                await firebase.database().ref("users/" + res.user.uid).set({
+                    email: email,
+                    money: 0
+                });
+                alert("Đăng ký thành công! Hãy đăng nhập.");
+                switchMode();
+            }
+        } catch (e) { err.innerText = e.message; }
+    }
+</script>
+</body>
+</html>
