@@ -9,13 +9,27 @@
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-storage.js"></script>
     <style>
-        body { font-family: sans-serif; background: #f0f2f5; padding: 20px; }
-        .container { max-width: 800px; margin: 0 auto; background: #fff; padding: 20px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+        body { font-family: sans-serif; background: #f0f2f5; padding: 20px; margin: 0; }
+        .container { max-width: 900px; margin: 0 auto; background: #fff; padding: 20px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
         .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #eee; padding-bottom: 15px; margin-bottom: 20px; }
-        button { padding: 10px 15px; background: #e94560; color: #fff; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; }
+        
+        button { padding: 10px 15px; background: #e94560; color: #fff; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; transition: 0.2s; }
+        button:hover { background: #d03b54; }
+        input[type="file"] { padding: 8px; border: 1px solid #ddd; border-radius: 8px; }
+        #status { color: #e94560; font-size: 14px; margin-left: 10px; font-weight: bold; }
+
         .gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 15px; margin-top: 20px; }
-        img, video { width: 100%; height: 200px; object-fit: cover; border-radius: 8px; }
-        #status { color: #e94560; font-size: 14px; margin-left: 10px; }
+        .media-card { position: relative; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 5px rgba(0,0,0,0.1); background: #000; cursor: pointer; }
+        .media-card img, .media-card video { width: 100%; height: 200px; object-fit: cover; display: block; transition: transform 0.3s; }
+        .media-card:hover img { transform: scale(1.05); }
+        
+        .delete-btn { position: absolute; top: 8px; right: 8px; background: rgba(255, 0, 0, 0.8); color: white; border: none; padding: 6px 10px; border-radius: 6px; cursor: pointer; z-index: 10; display: none; }
+        .media-card:hover .delete-btn { display: block; }
+
+        /* Giao diện phóng to */
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 1000; justify-content: center; align-items: center; }
+        .modal-content { max-width: 90%; max-height: 90%; border-radius: 8px; }
+        .close-modal { position: absolute; top: 20px; right: 30px; color: white; font-size: 40px; cursor: pointer; font-weight: bold; }
     </style>
 </head>
 <body>
@@ -33,6 +47,11 @@
     </div>
 
     <div class="gallery" id="gallery"></div>
+</div>
+
+<div id="mediaModal" class="modal">
+    <span class="close-modal" onclick="closeModal()">&times;</span>
+    <div id="modalViewer"></div>
 </div>
 
 <script>
@@ -66,19 +85,24 @@
         if (!file) return statusTxt.innerText = "Vui lòng chọn file!";
         statusTxt.innerText = "Đang tải lên...";
 
-        const storageRef = firebase.storage().ref(`users/${currentUser.uid}/${Date.now()}_${file.name}`);
+        const fileName = `${Date.now()}_${file.name}`;
+        const filePath = `users/${currentUser.uid}/${fileName}`;
+        const storageRef = firebase.storage().ref(filePath);
 
         try {
             const snapshot = await storageRef.put(file);
             const url = await snapshot.ref.getDownloadURL();
 
+            // Lưu thêm filePath để sau này có thể xóa
             await firebase.database().ref(`media/${currentUser.uid}`).push({
                 url: url,
-                type: file.type
+                type: file.type,
+                path: filePath 
             });
 
             statusTxt.innerText = "Tải lên thành công!";
             document.getElementById("fileInput").value = "";
+            setTimeout(() => statusTxt.innerText = "", 3000);
         } catch (e) {
             statusTxt.innerText = "Lỗi: " + e.message;
         }
@@ -88,20 +112,67 @@
         firebase.database().ref(`media/${currentUser.uid}`).on("value", (snapshot) => {
             const gallery = document.getElementById("gallery");
             gallery.innerHTML = "";
+            
             snapshot.forEach((childSnapshot) => {
+                const key = childSnapshot.key;
                 const data = childSnapshot.val();
                 const div = document.createElement("div");
+                div.className = "media-card";
                 
+                let mediaElement = "";
+                let clickAction = `onclick="openModal('${data.url}', '${data.type}')"`;
+
                 if (data.type.includes("image")) {
-                    div.innerHTML = `<img src="${data.url}">`;
+                    mediaElement = `<img src="${data.url}" ${clickAction}>`;
                 } else if (data.type.includes("video")) {
-                    div.innerHTML = `<video src="${data.url}" controls></video>`;
+                    // Tắt click trực tiếp mở modal cho video để người dùng có thể bấm nút Play
+                    mediaElement = `<video src="${data.url}" controls></video>`;
                 }
                 
-                gallery.appendChild(div);
+                div.innerHTML = `
+                    ${mediaElement}
+                    <button class="delete-btn" onclick="deleteFile('${key}', '${data.path}')">Xóa</button>
+                `;
+                gallery.prepend(div); // Thêm file mới lên đầu
             });
         });
     }
+
+    async function deleteFile(dbKey, storagePath) {
+        if (!confirm("Bạn có chắc chắn muốn xóa tệp này?")) return;
+        
+        try {
+            // Xóa file trên Storage
+            await firebase.storage().ref(storagePath).delete();
+            // Xóa dữ liệu trên Database
+            await firebase.database().ref(`media/${currentUser.uid}/${dbKey}`).remove();
+        } catch (e) {
+            alert("Lỗi khi xóa: " + e.message);
+        }
+    }
+
+    // Các hàm xử lý phóng to
+    function openModal(url, type) {
+        const modal = document.getElementById("mediaModal");
+        const viewer = document.getElementById("modalViewer");
+        
+        if (type.includes("image")) {
+            viewer.innerHTML = `<img src="${url}" class="modal-content">`;
+        }
+        modal.style.display = "flex";
+    }
+
+    function closeModal() {
+        const modal = document.getElementById("mediaModal");
+        const viewer = document.getElementById("modalViewer");
+        modal.style.display = "none";
+        viewer.innerHTML = ""; // Xóa nội dung để dừng video (nếu có)
+    }
+
+    // Đóng modal khi click ra ngoài ảnh
+    document.getElementById("mediaModal").addEventListener('click', function(e) {
+        if (e.target === this) closeModal();
+    });
 </script>
 </body>
 </html>
