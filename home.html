@@ -83,15 +83,13 @@
         else { window.location.href = "index.html"; }
     });
 
-    // --- HÀM TẢI LÊN MỚI ---
     function uploadFile() {
         const fileInput = document.getElementById("fileInput");
         const status = document.getElementById("status");
         const file = fileInput.files[0];
-        
-        if (!file) return alert("Chọn file đi bạn!");
-        status.innerText = "Đang tải...";
+        if (!file) return;
 
+        status.innerText = "Đang tải...";
         const storageRef = firebase.storage().ref(`media/${currentUser.uid}/${Date.now()}_${file.name}`);
         storageRef.put(file).then(snapshot => {
             snapshot.ref.getDownloadURL().then(url => {
@@ -99,7 +97,7 @@
                     url: url,
                     type: file.type
                 }).then(() => {
-                    status.innerText = "Xong!";
+                    status.innerText = "Đã xong!";
                     fileInput.value = "";
                     setTimeout(() => status.innerText = "", 2000);
                 });
@@ -110,9 +108,8 @@
         });
     }
 
-    // --- HÀM XÓA ---
     function deleteFile(key) {
-        if(confirm("Xóa nhé?")) {
+        if(confirm("Bạn muốn xóa mục này?")) {
             firebase.database().ref(`media/${currentUser.uid}/${key}`).remove();
         }
     }
@@ -199,7 +196,7 @@
             document.getElementById("btnPrev").classList.remove("show");
             document.getElementById("btnNext").classList.remove("show");
             document.getElementById("closeX").style.opacity = 0;
-        }, 300);
+        }, 800);
     }
 
     function changeMedia(dir) {
