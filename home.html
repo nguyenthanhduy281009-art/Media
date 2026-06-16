@@ -83,34 +83,38 @@
         else { window.location.href = "index.html"; }
     });
 
-    // --- HÀM TẢI LÊN ---
+    // --- HÀM TẢI LÊN MỚI ---
     function uploadFile() {
         const fileInput = document.getElementById("fileInput");
         const status = document.getElementById("status");
         const file = fileInput.files[0];
-        if (!file) return alert("Vui lòng chọn ảnh hoặc video!");
-
-        status.innerText = "Đang tải...";
-        const storageRef = firebase.storage().ref(`media/${currentUser.uid}/${Date.now()}_${file.name}`);
         
+        if (!file) return alert("Chọn file đi bạn!");
+        status.innerText = "Đang tải...";
+
+        const storageRef = firebase.storage().ref(`media/${currentUser.uid}/${Date.now()}_${file.name}`);
         storageRef.put(file).then(snapshot => {
             snapshot.ref.getDownloadURL().then(url => {
                 firebase.database().ref(`media/${currentUser.uid}`).push({
                     url: url,
                     type: file.type
                 }).then(() => {
-                    status.innerText = "Tải xong!";
+                    status.innerText = "Xong!";
                     fileInput.value = "";
                     setTimeout(() => status.innerText = "", 2000);
                 });
             });
-        }).catch(err => status.innerText = "Lỗi: " + err.message);
+        }).catch(err => {
+            status.innerText = "Lỗi: " + err.message;
+            console.error(err);
+        });
     }
 
     // --- HÀM XÓA ---
-    async function deleteFile(dbKey) {
-        if (!confirm("Bạn muốn xóa mục này?")) return;
-        await firebase.database().ref(`media/${currentUser.uid}/${dbKey}`).remove();
+    function deleteFile(key) {
+        if(confirm("Xóa nhé?")) {
+            firebase.database().ref(`media/${currentUser.uid}/${key}`).remove();
+        }
     }
 
     function loadMedia() {
@@ -171,7 +175,7 @@
         };
         window.onmousemove = (e) => {
             if(isDragging) {
-                posX = e.clientX - startX; posY = e.clientY - posY;
+                posX = e.clientX - startX; posY = e.clientY - startY;
                 viewEl.style.transform = `scale(${scale}) translate(${posX}px, ${posY}px)`;
             }
             showUI();
