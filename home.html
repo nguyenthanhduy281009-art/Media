@@ -35,6 +35,10 @@
         #modalViewer { width: 100%; height: 100%; overflow: hidden; cursor: grab; display: flex; justify-content: center; align-items: center; }
         /* Xóa pointer-events: none để video controls hoạt động */
         #modalViewer img, #modalViewer video { transition: none; }
+        .music-container { position: relative; display: inline-block; }
+.music-list { display: none; position: absolute; right: 0; background: white; border: 1px solid #ccc; width: 250px; max-height: 300px; overflow-y: auto; z-index: 100; box-shadow: 0 4px 6px rgba(0,0,0,0.1); border-radius: 8px; padding: 10px; }
+.music-item { padding: 8px; cursor: pointer; border-bottom: 1px solid #eee; }
+.music-item:hover { background: #f9f9f9; }
     </style>
 </head>
 <body>
@@ -42,8 +46,13 @@
 <div class="container">
     <div class="header">
         <h2>Thư viện của bạn</h2>
+        <div class="music-container">
+        <button onclick="toggleMusicList()">Nhạc</button>
+        <div id="musicList" class="music-list"></div>
+    </div>
         <button onclick="firebase.auth().signOut()">Đăng xuất</button>
     </div>
+    <audio id="audioPlayer"></audio>
     <div>
         <input type="file" id="fileInput" accept="image/*,video/*">
         <button onclick="uploadFile()">Tải lên</button>
@@ -83,50 +92,70 @@
         else { window.location.href = "index.html"; }
     });
 
-    function uploadFile() {
-    const file = document.getElementById("fileInput").files[0];
+    let currentAudio = new Audio();
+let audioList = [];
+
+// Bấm nút Nhạc để hiện/ẩn danh sách
+function toggleMusicList() {
+    const list = document.getElementById("musicList");
+    list.style.display = list.style.display === "block" ? "none" : "block";
+    loadAudioFiles();
+}
+
+// Lọc nhạc từ mediaList (chỉ lấy file có type là audio)
+function loadAudioFiles() {
+    const listDiv = document.getElementById("musicList");
+    listDiv.innerHTML = "";
+    audioList = mediaList.filter(item => item.type.includes("audio"));
+    
+    audioList.forEach((item, index) => {
+        const div = document.createElement("div");
+        div.className = "music-item";
+        div.innerText = "Audio " + (index + 1);
+        div.onclick = () => playAudio(index);
+        listDiv.appendChild(div);
+    });
+}
+
+function playAudio(index) {
+    if (currentAudio.src === audioList[index].url && !currentAudio.paused) {
+        currentAudio.pause(); // Bấm lại để dừng
+    } else {
+        currentAudio.src = audioList[index].url;
+        currentAudio.play();
+    }
+}
+
+// Phát liên tục (tự động chuyển bài)
+currentAudio.onended = () => {
+    let nextIndex = audioList.findIndex(a => a.url === currentAudio.src) + 1;
+    if (nextIndex < audioList.length) playAudio(nextIndex);
+};
+
+    // Thay thế hàm uploadFile cũ bằng hàm này
+function uploadFile() {
+    const fileInput = document.getElementById("fileInput");
+    const file = fileInput.files[0];
     const statusTxt = document.getElementById("status");
 
-    if (!file) {
-        statusTxt.innerText = "Vui lòng chọn file!";
-        return;
-    }
-
-    if (file.size > 7 * 1024 * 1024) {
-        statusTxt.innerText = "File quá lớn! Hãy chọn file dưới 7MB.";
-        return;
-    }
-
-    statusTxt.innerText = "Đang tải lên...";
+    if (!file) return alert("Chọn file đi bạn!");
+    
+    // Kiểm tra xem có phải audio không để đặt type đúng
+    const isAudio = file.type.startsWith('audio/');
+    statusTxt.innerText = "Đang xử lý...";
 
     const reader = new FileReader();
-
-    reader.onload = async () => {
-        try {
-            await firebase.database()
-                .ref(`media/${currentUser.uid}`)
-                .push({
-                    url: reader.result,
-                    type: file.type,
-                    createdAt: Date.now()
-                });
-
+    reader.onload = () => {
+        firebase.database().ref(`media/${currentUser.uid}`).push({
+            url: reader.result,
+            type: file.type, // Lưu lại type là 'audio/...' hoặc 'image/...'
+            createdAt: Date.now()
+        }).then(() => {
             statusTxt.innerText = "Tải lên thành công!";
-            document.getElementById("fileInput").value = "";
-
-            setTimeout(() => {
-                statusTxt.innerText = "";
-            }, 3000);
-
-        } catch (err) {
-            statusTxt.innerText = "Lỗi: " + err.message;
-        }
+            fileInput.value = "";
+            setTimeout(() => statusTxt.innerText = "", 2000);
+        });
     };
-
-    reader.onerror = () => {
-        statusTxt.innerText = "Lỗi khi đọc file!";
-    };
-
     reader.readAsDataURL(file);
 }
 
