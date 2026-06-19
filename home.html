@@ -15,41 +15,24 @@
         button:hover { background: #d03b54; }
         input[type="file"] { padding: 8px; border: 1px solid #ddd; border-radius: 8px; }
         #status { color: #e94560; font-size: 14px; margin-left: 10px; font-weight: bold; }
-
         .gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 15px; margin-top: 20px; }
         .media-card { position: relative; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 5px rgba(0,0,0,0.1); background: #000; cursor: grab; }
         .media-card img, .media-card video { width: 100%; height: 200px; object-fit: cover; display: block; transition: transform 0.3s; pointer-events: none; }
         .media-card:hover img { transform: scale(1.05); }
         .delete-btn { position: absolute; top: 8px; right: 8px; background: rgba(255, 0, 0, 0.8); color: white; border: none; padding: 6px 10px; border-radius: 6px; cursor: pointer; z-index: 10; display: none; }
         .media-card:hover .delete-btn { display: block; }
-
-        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); z-index: 1000; justify-content: center; align-items: center; user-select: none; }
-        .close-modal { position: absolute; top: 20px; right: 30px; color: #fff; font-size: 40px; cursor: pointer; font-weight: bold; transition: 0.2s; z-index: 1010; }
-        .close-modal:hover { color: #e94560; }
-
-        .nav-btn { position: absolute; top: 50%; transform: translateY(-50%); background: rgba(255, 255, 255, 0.15); color: white; border: none; font-size: 35px; padding: 15px 20px; border-radius: 50%; cursor: pointer; transition: 0.3s; z-index: 1010; opacity: 0; }
-        .nav-btn.show { opacity: 1; }
-        .prev-btn { left: 30px; }
-        .next-btn { right: 30px; }
-        
-        #modalViewer { width: 100%; height: 100%; overflow: hidden; cursor: grab; display: flex; justify-content: center; align-items: center; }
-        #modalViewer img, #modalViewer video { transition: none; }
-        .music-container { position: relative; display: inline-block; }
-        .music-list { display: none; position: absolute; right: 0; background: white; border: 1px solid #ccc; width: 250px; max-height: 300px; overflow-y: auto; z-index: 100; box-shadow: 0 4px 6px rgba(0,0,0,0.1); border-radius: 8px; padding: 10px; }
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); z-index: 1000; justify-content: center; align-items: center; }
+        .close-modal { position: absolute; top: 20px; right: 30px; color: #fff; font-size: 40px; cursor: pointer; z-index: 1010; }
+        .music-list { display: none; position: absolute; right: 0; background: white; border: 1px solid #ccc; width: 250px; max-height: 300px; overflow-y: auto; z-index: 100; padding: 10px; border-radius: 8px; }
         .music-item { padding: 8px; cursor: pointer; border-bottom: 1px solid #eee; }
-        .music-item:hover { background: #f9f9f9; }
     </style>
 </head>
 <body>
 
 <div class="container">
     <div class="header">
-        <h2>Thư viện</h2>
-        <div style="display: flex; gap: 10px; align-items: center;">
-            <input type="file" id="mediaInput" accept="image/*,video/*">
-            <button onclick="uploadMedia()">Tải ảnh/video</button>
-            <input type="file" id="audioInput" accept="audio/*,video/*">
-            <button onclick="uploadAudio()">Tải nhạc lên</button>
+        <h2>Thư viện của bạn</h2>
+        <div style="display:flex; gap:10px;">
             <div class="music-container">
                 <button onclick="toggleMusicList()">Nhạc</button>
                 <div id="musicList" class="music-list"></div>
@@ -57,99 +40,61 @@
             <button onclick="firebase.auth().signOut()">Đăng xuất</button>
         </div>
     </div>
+    <div>
+        <input type="file" id="fileInput" accept="image/*,video/*">
+        <button onclick="uploadFile()">Tải Ảnh/Video</button>
+        <input type="file" id="audioInput" accept="audio/*,video/*">
+        <button onclick="uploadAudio()">Tải Nhạc (Không Hình)</button>
+        <span id="status"></span>
+    </div>
     <div class="gallery" id="gallery"></div>
 </div>
 
 <div id="mediaModal" class="modal">
-    <span class="close-modal" onclick="closeModal()" id="closeX" style="opacity:0">&times;</span>
-    <button class="nav-btn prev-btn" id="btnPrev" onclick="changeMedia(-1)">&#10094;</button>
+    <span class="close-modal" onclick="closeModal()">&times;</span>
     <div id="modalViewer"></div>
-    <button class="nav-btn next-btn" id="btnNext" onclick="changeMedia(1)">&#10095;</button>
 </div>
 
 <script>
     const firebaseConfig = { /* CẤU HÌNH CỦA BẠN */ };
     if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
 
-    let currentUser = null;
-    let mediaList = [];
-    let currentMediaIndex = -1;
-    let scale = 1, posX = 0, posY = 0, isDragging = false, startX, startY;
-    let hideTimer;
+    let currentUser = null, mediaList = [];
 
-    firebase.auth().onAuthStateChanged((user) => {
+    firebase.auth().onAuthStateChanged(user => {
         if (user) { currentUser = user; loadMedia(); }
-        else { window.location.href = "index.html"; }
     });
 
-    let currentAudio = new Audio();
-    let audioList = [];
-
-    function toggleMusicList() {
-        const list = document.getElementById("musicList");
-        list.style.display = list.style.display === "block" ? "none" : "block";
-        loadAudioFiles();
+    // Hàm lưu dùng chung
+    function saveToDatabase(file, type) {
+        const reader = new FileReader();
+        document.getElementById("status").innerText = "Đang tải...";
+        reader.onload = () => {
+            firebase.database().ref(`media/${currentUser.uid}`).push({
+                url: reader.result, type: type, createdAt: Date.now()
+            }).then(() => {
+                document.getElementById("status").innerText = "Xong!";
+                setTimeout(() => document.getElementById("status").innerText = "", 2000);
+            });
+        };
+        reader.readAsDataURL(file);
     }
 
-    function loadAudioFiles() {
-        const listDiv = document.getElementById("musicList");
-        listDiv.innerHTML = "";
-        audioList = mediaList.filter(item => item.type.includes("audio"));
-        audioList.forEach((item, index) => {
-            const div = document.createElement("div");
-            div.className = "music-item";
-            div.innerText = "🎵 " + (index + 1);
-            div.onclick = () => playAudio(index);
-            listDiv.appendChild(div);
-        });
-    }
-
-    function playAudio(index) {
-        if (currentAudio.src === audioList[index].url && !currentAudio.paused) {
-            currentAudio.pause();
-        } else {
-            currentAudio.src = audioList[index].url;
-            currentAudio.play();
-        }
-    }
-
-    function uploadMedia() {
-        const file = document.getElementById("mediaInput").files[0];
-        if (!file) return;
-        saveToFirebase(file);
+    function uploadFile() {
+        const file = document.getElementById("fileInput").files[0];
+        if (file) saveToDatabase(file, file.type);
     }
 
     function uploadAudio() {
         const file = document.getElementById("audioInput").files[0];
-        if (!file) return alert("Vui lòng chọn file!");
-        const reader = new FileReader();
-        reader.onload = () => {
-            firebase.database().ref(`media/${currentUser.uid}`).push({
-                url: reader.result,
-                type: file.type.includes("video") ? "audio/video-track" : file.type,
-                createdAt: Date.now()
-            }).then(() => alert("Tải lên thành công!"));
-        };
-        reader.readAsDataURL(file);
-    }
-
-    function saveToFirebase(file) {
-        const reader = new FileReader();
-        reader.onload = () => {
-            firebase.database().ref(`media/${currentUser.uid}`).push({
-                url: reader.result, type: file.type, createdAt: Date.now()
-            });
-        };
-        reader.readAsDataURL(file);
+        // Ép kiểu type chứa 'audio' để hệ thống nhận diện là file chỉ phát tiếng
+        if (file) saveToDatabase(file, "audio/custom-upload");
     }
 
     function loadMedia() {
-        firebase.database().ref(`media/${currentUser.uid}`).on("value", (snapshot) => {
+        firebase.database().ref(`media/${currentUser.uid}`).on("value", snap => {
             mediaList = [];
-            snapshot.forEach((child) => {
-                const data = child.val();
-                mediaList.unshift({ key: child.key, url: data.url, type: data.type });
-            });
+            snap.forEach(child => mediaList.unshift({ key: child.key, ...child.val() }));
             renderGallery();
         });
     }
@@ -160,9 +105,11 @@
         mediaList.forEach((item, index) => {
             const div = document.createElement("div");
             div.className = "media-card";
-            if (item.type.includes("image")) div.innerHTML = `<img src="${item.url}">`;
-            else if (item.type.includes("video")) div.innerHTML = `<video src="${item.url}"></video>`;
-            else div.innerHTML = `<div style="height:200px; display:flex; align-items:center; justify-content:center; color:white; font-size:40px;">🎵</div>`;
+            // Nếu là audio thì hiển thị icon nhạc
+            div.innerHTML = item.type.includes("audio") ? 
+                `<div style="display:flex;height:200px;align-items:center;justify-content:center;color:white;font-size:40px;">🎵</div>` :
+                (item.type.includes("image") ? `<img src="${item.url}">` : `<video src="${item.url}"></video>`);
+            
             div.innerHTML += `<button class="delete-btn" onclick="event.stopPropagation(); deleteFile('${item.key}')">Xóa</button>`;
             div.onclick = () => openModalAtIndex(index);
             gallery.appendChild(div);
@@ -170,28 +117,35 @@
     }
 
     function openModalAtIndex(index) {
-        currentMediaIndex = index; scale = 1; posX = 0; posY = 0;
-        const modal = document.getElementById("mediaModal");
-        const viewer = document.getElementById("modalViewer");
         const item = mediaList[index];
-        viewer.innerHTML = "";
-        
-        const isAudioType = item.type.includes("audio");
-
-        if (isAudioType) {
-            viewer.innerHTML = `<audio src="${item.url}" id="viewEl" controls autoplay style="width: 80%;"></audio>`;
+        const viewer = document.getElementById("modalViewer");
+        // Nếu type chứa audio -> Dùng thẻ <audio> không hiện hình
+        if (item.type.includes("audio")) {
+            viewer.innerHTML = `<audio src="${item.url}" controls autoplay style="width:80%"></audio>`;
         } else if (item.type.includes("image")) {
-            viewer.innerHTML = `<img src="${item.url}" id="viewEl" style="max-width: 100vw; max-height: 100vh; object-fit: contain;">`;
+            viewer.innerHTML = `<img src="${item.url}" style="max-width:90%;max-height:90%">`;
         } else {
-            viewer.innerHTML = `<video src="${item.url}" id="viewEl" controls autoplay loop style="max-width: 100vw; max-height: 100vh; object-fit: contain;"></video>`;
+            viewer.innerHTML = `<video src="${item.url}" controls autoplay style="max-width:90%;max-height:90%"></video>`;
         }
-        modal.style.display = "flex";
+        document.getElementById("mediaModal").style.display = "flex";
+    }
+
+    function toggleMusicList() {
+        const list = document.getElementById("musicList");
+        list.style.display = list.style.display === "block" ? "none" : "block";
+        list.innerHTML = "";
+        mediaList.filter(i => i.type.includes("audio")).forEach((item, idx) => {
+            const div = document.createElement("div");
+            div.className = "music-item";
+            div.innerText = "🎵 Nhạc " + (idx + 1);
+            div.onclick = () => openModalAtIndex(mediaList.indexOf(item));
+            list.appendChild(div);
+        });
     }
 
     function closeModal() { document.getElementById("mediaModal").style.display = "none"; }
-    
-    async function deleteFile(dbKey) {
-        if (confirm("Xóa nhé?")) await firebase.database().ref(`media/${currentUser.uid}/${dbKey}`).remove();
+    async function deleteFile(key) { 
+        if (confirm("Xóa nhé?")) await firebase.database().ref(`media/${currentUser.uid}/${key}`).remove(); 
     }
 </script>
 </body>
