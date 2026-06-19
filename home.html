@@ -15,16 +15,30 @@
         button:hover { background: #d03b54; }
         input[type="file"] { padding: 8px; border: 1px solid #ddd; border-radius: 8px; }
         #status { color: #e94560; font-size: 14px; margin-left: 10px; font-weight: bold; }
+
         .gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 15px; margin-top: 20px; }
         .media-card { position: relative; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 5px rgba(0,0,0,0.1); background: #000; cursor: grab; }
         .media-card img, .media-card video { width: 100%; height: 200px; object-fit: cover; display: block; transition: transform 0.3s; pointer-events: none; }
         .media-card:hover img { transform: scale(1.05); }
         .delete-btn { position: absolute; top: 8px; right: 8px; background: rgba(255, 0, 0, 0.8); color: white; border: none; padding: 6px 10px; border-radius: 6px; cursor: pointer; z-index: 10; display: none; }
         .media-card:hover .delete-btn { display: block; }
-        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); z-index: 1000; justify-content: center; align-items: center; }
-        .close-modal { position: absolute; top: 20px; right: 30px; color: #fff; font-size: 40px; cursor: pointer; z-index: 1010; }
-        .music-list { display: none; position: absolute; right: 0; background: white; border: 1px solid #ccc; width: 250px; max-height: 300px; overflow-y: auto; z-index: 100; padding: 10px; border-radius: 8px; }
-        .music-item { padding: 8px; cursor: pointer; border-bottom: 1px solid #eee; }
+
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); z-index: 1000; justify-content: center; align-items: center; user-select: none; }
+        .close-modal { position: absolute; top: 20px; right: 30px; color: #fff; font-size: 40px; cursor: pointer; font-weight: bold; transition: 0.2s; z-index: 1010; }
+        .close-modal:hover { color: #e94560; }
+
+        .nav-btn { position: absolute; top: 50%; transform: translateY(-50%); background: rgba(255, 255, 255, 0.15); color: white; border: none; font-size: 35px; padding: 15px 20px; border-radius: 50%; cursor: pointer; transition: 0.3s; z-index: 1010; opacity: 0; }
+        .nav-btn.show { opacity: 1; }
+        .prev-btn { left: 30px; }
+        .next-btn { right: 30px; }
+        
+        #modalViewer { width: 100%; height: 100%; overflow: hidden; cursor: grab; display: flex; justify-content: center; align-items: center; }
+        /* Xóa pointer-events: none để video controls hoạt động */
+        #modalViewer img, #modalViewer video { transition: none; }
+        .music-container { position: relative; display: inline-block; }
+.music-list { display: none; position: absolute; right: 0; background: white; border: 1px solid #ccc; width: 250px; max-height: 300px; overflow-y: auto; z-index: 100; box-shadow: 0 4px 6px rgba(0,0,0,0.1); border-radius: 8px; padding: 10px; }
+.music-item { padding: 8px; cursor: pointer; border-bottom: 1px solid #eee; }
+.music-item:hover { background: #f9f9f9; }
     </style>
 </head>
 <body>
@@ -32,69 +46,128 @@
 <div class="container">
     <div class="header">
         <h2>Thư viện của bạn</h2>
-        <div style="display:flex; gap:10px;">
-            <div class="music-container">
-                <button onclick="toggleMusicList()">Nhạc</button>
-                <div id="musicList" class="music-list"></div>
-            </div>
-            <button onclick="firebase.auth().signOut()">Đăng xuất</button>
-        </div>
+        <div class="music-container">
+        <button onclick="toggleMusicList()">Nhạc</button>
+        <div id="musicList" class="music-list"></div>
     </div>
+        <button onclick="firebase.auth().signOut()">Đăng xuất</button>
+    </div>
+    <audio id="audioPlayer"></audio>
     <div>
         <input type="file" id="fileInput" accept="image/*,video/*">
-        <button onclick="uploadFile()">Tải Ảnh/Video</button>
-        <input type="file" id="audioInput" accept="audio/*,video/*">
-        <button onclick="uploadAudio()">Tải Nhạc (Không Hình)</button>
+        <button onclick="uploadFile()">Tải lên</button>
         <span id="status"></span>
     </div>
     <div class="gallery" id="gallery"></div>
 </div>
 
 <div id="mediaModal" class="modal">
-    <span class="close-modal" onclick="closeModal()">&times;</span>
+    <span class="close-modal" onclick="closeModal()" id="closeX" style="opacity:0">&times;</span>
+    <button class="nav-btn prev-btn" id="btnPrev" onclick="changeMedia(-1)">&#10094;</button>
     <div id="modalViewer"></div>
+    <button class="nav-btn next-btn" id="btnNext" onclick="changeMedia(1)">&#10095;</button>
 </div>
 
 <script>
-    const firebaseConfig = { /* CẤU HÌNH CỦA BẠN */ };
+    const firebaseConfig = {
+        apiKey: "AIzaSyCmLLI3wHywsLB33QmJDSgUzQcfS3GJgso",
+        authDomain: "haha-ba0bc.firebaseapp.com",
+        projectId: "haha-ba0bc",
+        storageBucket: "haha-ba0bc.firebasestorage.app",
+        messagingSenderId: "748739861694",
+        appId: "1:748739861694:web:492d2a164fec150840d2ef",
+        measurementId: "G-DFQ8DYRZ1G",
+        databaseURL: "https://haha-ba0bc-default-rtdb.asia-southeast1.firebasedatabase.app"
+    };
     if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
 
-    let currentUser = null, mediaList = [];
+    let currentUser = null;
+    let mediaList = [];
+    let currentMediaIndex = -1;
+    let scale = 1, posX = 0, posY = 0, isDragging = false, startX, startY;
+    let hideTimer;
 
-    firebase.auth().onAuthStateChanged(user => {
+    firebase.auth().onAuthStateChanged((user) => {
         if (user) { currentUser = user; loadMedia(); }
+        else { window.location.href = "index.html"; }
     });
 
-    // Hàm lưu dùng chung
-    function saveToDatabase(file, type) {
-        const reader = new FileReader();
-        document.getElementById("status").innerText = "Đang tải...";
-        reader.onload = () => {
-            firebase.database().ref(`media/${currentUser.uid}`).push({
-                url: reader.result, type: type, createdAt: Date.now()
-            }).then(() => {
-                document.getElementById("status").innerText = "Xong!";
-                setTimeout(() => document.getElementById("status").innerText = "", 2000);
-            });
-        };
-        reader.readAsDataURL(file);
-    }
+    let currentAudio = new Audio();
+let audioList = [];
 
-    function uploadFile() {
-        const file = document.getElementById("fileInput").files[0];
-        if (file) saveToDatabase(file, file.type);
-    }
+// Bấm nút Nhạc để hiện/ẩn danh sách
+function toggleMusicList() {
+    const list = document.getElementById("musicList");
+    list.style.display = list.style.display === "block" ? "none" : "block";
+    loadAudioFiles();
+}
 
-    function uploadAudio() {
-        const file = document.getElementById("audioInput").files[0];
-        // Ép kiểu type chứa 'audio' để hệ thống nhận diện là file chỉ phát tiếng
-        if (file) saveToDatabase(file, "audio/custom-upload");
+// Lọc nhạc từ mediaList (chỉ lấy file có type là audio)
+function loadAudioFiles() {
+    const listDiv = document.getElementById("musicList");
+    listDiv.innerHTML = "";
+    audioList = mediaList.filter(item => item.type.includes("audio"));
+    
+    audioList.forEach((item, index) => {
+        const div = document.createElement("div");
+        div.className = "music-item";
+        div.innerText = "Audio " + (index + 1);
+        div.onclick = () => playAudio(index);
+        listDiv.appendChild(div);
+    });
+}
+
+function playAudio(index) {
+    if (currentAudio.src === audioList[index].url && !currentAudio.paused) {
+        currentAudio.pause(); // Bấm lại để dừng
+    } else {
+        currentAudio.src = audioList[index].url;
+        currentAudio.play();
     }
+}
+
+// Phát liên tục (tự động chuyển bài)
+currentAudio.onended = () => {
+    let nextIndex = audioList.findIndex(a => a.url === currentAudio.src) + 1;
+    if (nextIndex < audioList.length) playAudio(nextIndex);
+};
+
+    // Thay thế hàm uploadFile cũ bằng hàm này
+function uploadFile() {
+    const fileInput = document.getElementById("fileInput");
+    const file = fileInput.files[0];
+    const statusTxt = document.getElementById("status");
+
+    if (!file) return alert("Chọn file đi bạn!");
+    
+    // Kiểm tra xem có phải audio không để đặt type đúng
+    const isAudio = file.type.startsWith('audio/');
+    statusTxt.innerText = "Đang xử lý...";
+
+    const reader = new FileReader();
+    reader.onload = () => {
+        firebase.database().ref(`media/${currentUser.uid}`).push({
+            url: reader.result,
+            type: file.type, // Lưu lại type là 'audio/...' hoặc 'image/...'
+            createdAt: Date.now()
+        }).then(() => {
+            statusTxt.innerText = "Tải lên thành công!";
+            fileInput.value = "";
+            setTimeout(() => statusTxt.innerText = "", 2000);
+        });
+    };
+    reader.readAsDataURL(file);
+}
 
     function loadMedia() {
-        firebase.database().ref(`media/${currentUser.uid}`).on("value", snap => {
+        firebase.database().ref(`media/${currentUser.uid}`).on("value", (snapshot) => {
+            const gallery = document.getElementById("gallery");
+            gallery.innerHTML = "";
             mediaList = [];
-            snap.forEach(child => mediaList.unshift({ key: child.key, ...child.val() }));
+            snapshot.forEach((childSnapshot) => {
+                const data = childSnapshot.val();
+                mediaList.unshift({ key: childSnapshot.key, url: data.url, type: data.type });
+            });
             renderGallery();
         });
     }
@@ -105,48 +178,96 @@
         mediaList.forEach((item, index) => {
             const div = document.createElement("div");
             div.className = "media-card";
-            // Nếu là audio thì hiển thị icon nhạc
-            div.innerHTML = item.type.includes("audio") ? 
-                `<div style="display:flex;height:200px;align-items:center;justify-content:center;color:white;font-size:40px;">🎵</div>` :
-                (item.type.includes("image") ? `<img src="${item.url}">` : `<video src="${item.url}"></video>`);
-            
+            div.draggable = true;
+            div.innerHTML = item.type.includes("image") ? `<img src="${item.url}">` : `<video src="${item.url}"></video>`;
             div.innerHTML += `<button class="delete-btn" onclick="event.stopPropagation(); deleteFile('${item.key}')">Xóa</button>`;
             div.onclick = () => openModalAtIndex(index);
+            
+            div.ondragstart = (e) => e.dataTransfer.setData("text", index);
+            div.ondragover = (e) => e.preventDefault();
+            div.ondrop = (e) => {
+                const fromIdx = e.dataTransfer.getData("text");
+                const moved = mediaList.splice(fromIdx, 1)[0];
+                mediaList.splice(index, 0, moved);
+                renderGallery();
+            };
             gallery.appendChild(div);
         });
     }
 
     function openModalAtIndex(index) {
-        const item = mediaList[index];
+        currentMediaIndex = index; scale = 1; posX = 0; posY = 0;
+        const modal = document.getElementById("mediaModal");
         const viewer = document.getElementById("modalViewer");
-        // Nếu type chứa audio -> Dùng thẻ <audio> không hiện hình
-        if (item.type.includes("audio")) {
-            viewer.innerHTML = `<audio src="${item.url}" controls autoplay style="width:80%"></audio>`;
-        } else if (item.type.includes("image")) {
-            viewer.innerHTML = `<img src="${item.url}" style="max-width:90%;max-height:90%">`;
-        } else {
-            viewer.innerHTML = `<video src="${item.url}" controls autoplay style="max-width:90%;max-height:90%"></video>`;
-        }
-        document.getElementById("mediaModal").style.display = "flex";
+        const item = mediaList[index];
+        
+        // Thêm loop và style fit
+        const baseStyle = 'max-width: 100vw; max-height: 100vh; object-fit: contain; cursor: grab;';
+        viewer.innerHTML = item.type.includes("image") ? 
+            `<img src="${item.url}" id="viewEl" style="${baseStyle}">` : 
+            `<video src="${item.url}" id="viewEl" controls autoplay loop style="${baseStyle}"></video>`;
+            
+        modal.style.display = "flex";
+        
+        const viewEl = document.getElementById("viewEl");
+        viewEl.style.transform = `scale(1) translate(0px, 0px)`;
+        
+        viewer.onmousedown = (e) => { 
+            e.preventDefault(); 
+            isDragging = true; startX = e.clientX - posX; startY = e.clientY - posY; 
+        };
+        window.onmousemove = (e) => {
+            if(isDragging) {
+                posX = e.clientX - startX; posY = e.clientY - startY;
+                viewEl.style.transform = `scale(${scale}) translate(${posX}px, ${posY}px)`;
+            }
+            showUI();
+        };
+        window.onmouseup = () => isDragging = false;
+        
+        viewer.onwheel = (e) => {
+            e.preventDefault();
+            scale += e.deltaY * -0.001;
+            scale = Math.min(Math.max(0.5, scale), 3);
+            viewEl.style.transform = `scale(${scale}) translate(${posX}px, ${posY}px)`;
+        };
     }
 
-    function toggleMusicList() {
-        const list = document.getElementById("musicList");
-        list.style.display = list.style.display === "block" ? "none" : "block";
-        list.innerHTML = "";
-        mediaList.filter(i => i.type.includes("audio")).forEach((item, idx) => {
-            const div = document.createElement("div");
-            div.className = "music-item";
-            div.innerText = "🎵 Nhạc " + (idx + 1);
-            div.onclick = () => openModalAtIndex(mediaList.indexOf(item));
-            list.appendChild(div);
-        });
+    function showUI() {
+        document.getElementById("btnPrev").classList.add("show");
+        document.getElementById("btnNext").classList.add("show");
+        document.getElementById("closeX").style.opacity = 1;
+        clearTimeout(hideTimer);
+        hideTimer = setTimeout(() => {
+            document.getElementById("btnPrev").classList.remove("show");
+            document.getElementById("btnNext").classList.remove("show");
+            document.getElementById("closeX").style.opacity = 0;
+        }, 300);
+    }
+
+    function changeMedia(dir) {
+        currentMediaIndex += dir;
+        if (currentMediaIndex >= mediaList.length) currentMediaIndex = 0;
+        if (currentMediaIndex < 0) currentMediaIndex = mediaList.length - 1;
+        openModalAtIndex(currentMediaIndex);
     }
 
     function closeModal() { document.getElementById("mediaModal").style.display = "none"; }
-    async function deleteFile(key) { 
-        if (confirm("Xóa nhé?")) await firebase.database().ref(`media/${currentUser.uid}/${key}`).remove(); 
+
+    async function deleteFile(dbKey) {
+    if (!confirm("Bạn có chắc chắn muốn xóa không?")) return;
+
+    try {
+        await firebase.database()
+            .ref(`media/${currentUser.uid}/${dbKey}`)
+            .remove();
+
+        console.log("Đã xóa");
+    } catch (err) {
+        alert("Lỗi khi xóa: " + err.message);
+        console.error(err);
     }
+}
 </script>
 </body>
 </html>
