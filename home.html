@@ -180,7 +180,8 @@ function uploadFile(mode) {
             mediaList = [];
             snapshot.forEach((childSnapshot) => {
                 const data = childSnapshot.val();
-                mediaList.unshift({ key: childSnapshot.key, url: data.url, type: data.type });
+                mediaList.unshift({ key: childSnapshot.key, url: data.url, type: data.type, mode: data.mode || "normal"
+ });
             });
             renderGallery();
         });
@@ -189,29 +190,33 @@ function uploadFile(mode) {
     function renderGallery() {
     const gallery = document.getElementById("gallery");
     gallery.innerHTML = "";
-    
-    // LỌC: Chỉ hiện nếu mode là 'normal' HOẶC file chưa có mode (để file cũ vẫn hiện)
-    const displayList = mediaList.filter(item => !item.mode || item.mode === 'normal');
+
+    const displayList = mediaList.filter(item =>
+        item.mode === "normal"
+    );
 
     displayList.forEach((item) => {
-        const index = mediaList.indexOf(item); 
+        const index = mediaList.indexOf(item);
+
         const div = document.createElement("div");
         div.className = "media-card";
         div.draggable = true;
-        
-        div.innerHTML = item.type.includes("image") ? `<img src="${item.url}">` : `<video src="${item.url}"></video>`;
-        div.innerHTML += `<button class="delete-btn" onclick="event.stopPropagation(); deleteFile('${item.key}')">Xóa</button>`;
+
+        if (item.type.startsWith("image/")) {
+            div.innerHTML = `<img src="${item.url}">`;
+        } else if (item.type.startsWith("video/")) {
+            div.innerHTML = `<video src="${item.url}"></video>`;
+        }
+
+        div.innerHTML += `
+            <button class="delete-btn"
+            onclick="event.stopPropagation(); deleteFile('${item.key}')">
+            Xóa
+            </button>
+        `;
+
         div.onclick = () => openModalAtIndex(index);
-        
-        // ĐẦY ĐỦ LOGIC KÉO THẢ (Đã khôi phục)
-        div.ondragstart = (e) => e.dataTransfer.setData("text", index);
-        div.ondragover = (e) => e.preventDefault();
-        div.ondrop = (e) => {
-            const fromIdx = e.dataTransfer.getData("text");
-            const moved = mediaList.splice(fromIdx, 1)[0];
-            mediaList.splice(index, 0, moved);
-            renderGallery();
-        };
+
         gallery.appendChild(div);
     });
 }
