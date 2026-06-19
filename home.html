@@ -179,13 +179,12 @@ function uploadFile(mode) {
     const gallery = document.getElementById("gallery");
     gallery.innerHTML = "";
     
-    // Lọc: Chỉ lấy những file KHÔNG phải mode 'audio' để hiện ở thư viện
+    // LỌC: Chỉ lấy những item KHÔNG PHẢI là 'audio'
+    // Những file nào bạn tải bằng nút "Tải Nhạc" (có mode 'audio') sẽ bị ẩn hoàn toàn khỏi đây
     const displayList = mediaList.filter(item => item.mode !== 'audio');
 
     displayList.forEach((item) => {
-        // Tìm lại chỉ mục thực sự của item trong mảng mediaList gốc (để kéo thả và xóa đúng)
-        const index = mediaList.indexOf(item);
-        
+        const index = mediaList.indexOf(item); // Lấy vị trí thật trong danh sách gốc
         const div = document.createElement("div");
         div.className = "media-card";
         div.draggable = true;
@@ -194,6 +193,7 @@ function uploadFile(mode) {
         div.innerHTML += `<button class="delete-btn" onclick="event.stopPropagation(); deleteFile('${item.key}')">Xóa</button>`;
         div.onclick = () => openModalAtIndex(index);
         
+        // Logic kéo thả
         div.ondragstart = (e) => e.dataTransfer.setData("text", index);
         div.ondragover = (e) => e.preventDefault();
         div.ondrop = (e) => {
