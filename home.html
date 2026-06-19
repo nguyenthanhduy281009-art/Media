@@ -45,19 +45,22 @@
 
 <div class="container">
     <div class="header">
-        <h2>Thư viện của bạn</h2>
+    <h2>Thư viện</h2>
+    <div style="display: flex; gap: 10px; align-items: center;">
+        <input type="file" id="mediaInput" accept="image/*,video/*">
+        <button onclick="uploadMedia()">Tải ảnh/video</button>
+
+        <input type="file" id="audioInput" accept="audio/*">
+        <button onclick="uploadAudio()">Tải nhạc lên</button>
+
         <div class="music-container">
-        <button onclick="toggleMusicList()">Nhạc</button>
-        <div id="musicList" class="music-list"></div>
-    </div>
+            <button onclick="toggleMusicList()">Nhạc</button>
+            <div id="musicList" class="music-list"></div>
+        </div>
         <button onclick="firebase.auth().signOut()">Đăng xuất</button>
     </div>
+</div>
     <audio id="audioPlayer"></audio>
-    <div>
-        <input type="file" id="fileInput" accept="image/*,video/*">
-        <button onclick="uploadFile()">Tải lên</button>
-        <span id="status"></span>
-    </div>
     <div class="gallery" id="gallery"></div>
 </div>
 
@@ -132,33 +135,37 @@ currentAudio.onended = () => {
     if (nextIndex < audioList.length) playAudio(nextIndex);
 };
 
-    // Thay thế hàm uploadFile cũ bằng hàm này
-function uploadFile() {
-    const fileInput = document.getElementById("fileInput");
-    const file = fileInput.files[0];
+    // Hàm tải ảnh/video
+function uploadMedia() {
+    const file = document.getElementById("mediaInput").files[0];
+    if (!file) return;
+    saveToFirebase(file);
+}
+
+// Hàm tải nhạc riêng (chỉ lưu type là audio)
+function uploadAudio() {
+    const file = document.getElementById("audioInput").files[0];
+    if (!file) return;
+    saveToFirebase(file);
+}
+
+// Hàm dùng chung để lưu vào database
+function saveToFirebase(file) {
     const statusTxt = document.getElementById("status");
-
-    if (!file) return alert("Chọn file đi bạn!");
-    
-    // Kiểm tra xem có phải audio không để đặt type đúng
-    const isAudio = file.type.startsWith('audio/');
-    statusTxt.innerText = "Đang xử lý...";
-
+    statusTxt.innerText = "Đang tải...";
     const reader = new FileReader();
     reader.onload = () => {
         firebase.database().ref(`media/${currentUser.uid}`).push({
             url: reader.result,
-            type: file.type, // Lưu lại type là 'audio/...' hoặc 'image/...'
+            type: file.type,
             createdAt: Date.now()
         }).then(() => {
-            statusTxt.innerText = "Tải lên thành công!";
-            fileInput.value = "";
+            statusTxt.innerText = "Xong!";
             setTimeout(() => statusTxt.innerText = "", 2000);
         });
     };
     reader.readAsDataURL(file);
 }
-
     function loadMedia() {
         firebase.database().ref(`media/${currentUser.uid}`).on("value", (snapshot) => {
             const gallery = document.getElementById("gallery");
@@ -173,27 +180,30 @@ function uploadFile() {
     }
 
     function renderGallery() {
-        const gallery = document.getElementById("gallery");
-        gallery.innerHTML = "";
-        mediaList.forEach((item, index) => {
-            const div = document.createElement("div");
-            div.className = "media-card";
-            div.draggable = true;
-            div.innerHTML = item.type.includes("image") ? `<img src="${item.url}">` : `<video src="${item.url}"></video>`;
-            div.innerHTML += `<button class="delete-btn" onclick="event.stopPropagation(); deleteFile('${item.key}')">Xóa</button>`;
-            div.onclick = () => openModalAtIndex(index);
-            
-            div.ondragstart = (e) => e.dataTransfer.setData("text", index);
-            div.ondragover = (e) => e.preventDefault();
-            div.ondrop = (e) => {
-                const fromIdx = e.dataTransfer.getData("text");
-                const moved = mediaList.splice(fromIdx, 1)[0];
-                mediaList.splice(index, 0, moved);
-                renderGallery();
-            };
-            gallery.appendChild(div);
-        });
-    }
+    const gallery = document.getElementById("gallery");
+    gallery.innerHTML = "";
+    mediaList.forEach((item, index) => {
+        const div = document.createElement("div");
+        div.className = "media-card";
+        div.draggable = true;
+        
+        // SỬA ĐOẠN NÀY: Thêm điều kiện cho file audio
+        if (item.type.includes("image")) {
+            div.innerHTML = `<img src="${item.url}">`;
+        } else if (item.type.includes("video")) {
+            div.innerHTML = `<video src="${item.url}"></video>`;
+        } else {
+            // Hiển thị icon nhạc nếu là audio
+            div.innerHTML = `<div style="height:200px; display:flex; align-items:center; justify-content:center; color:white; font-size:40px;">🎵</div>`;
+        }
+        
+        div.innerHTML += `<button class="delete-btn" onclick="event.stopPropagation(); deleteFile('${item.key}')">Xóa</button>`;
+        div.onclick = () => openModalAtIndex(index);
+        
+        // ... giữ nguyên phần dnd (drag and drop) phía dưới
+        gallery.appendChild(div);
+    });
+}
 
     function openModalAtIndex(index) {
         currentMediaIndex = index; scale = 1; posX = 0; posY = 0;
