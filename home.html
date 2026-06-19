@@ -54,10 +54,11 @@
     </div>
     <audio id="audioPlayer"></audio>
     <div>
-        <input type="file" id="fileInput" accept="image/*,video/*">
-        <button onclick="uploadFile()">Tải lên</button>
-        <span id="status"></span>
-    </div>
+    <input type="file" id="fileInput" accept="image/*,video/*,audio/*">
+    <button onclick="uploadFile('normal')">Tải lên thường</button>
+    <button onclick="uploadFile('audio')">Tải Nhạc (Chỉ tiếng)</button>
+    <span id="status"></span>
+</div>
     <div class="gallery" id="gallery"></div>
 </div>
 
@@ -133,22 +134,20 @@ currentAudio.onended = () => {
 };
 
     // Thay thế hàm uploadFile cũ bằng hàm này
-function uploadFile() {
+function uploadFile(mode) {
     const fileInput = document.getElementById("fileInput");
     const file = fileInput.files[0];
     const statusTxt = document.getElementById("status");
 
     if (!file) return alert("Chọn file đi bạn!");
-    
-    // Kiểm tra xem có phải audio không để đặt type đúng
-    const isAudio = file.type.startsWith('audio/');
     statusTxt.innerText = "Đang xử lý...";
 
     const reader = new FileReader();
     reader.onload = () => {
         firebase.database().ref(`media/${currentUser.uid}`).push({
             url: reader.result,
-            type: file.type, // Lưu lại type là 'audio/...' hoặc 'image/...'
+            type: file.type,
+            mode: mode, // Lưu nhãn 'normal' hoặc 'audio' ở đây
             createdAt: Date.now()
         }).then(() => {
             statusTxt.innerText = "Tải lên thành công!";
@@ -196,18 +195,25 @@ function uploadFile() {
     }
 
     function openModalAtIndex(index) {
-        currentMediaIndex = index; scale = 1; posX = 0; posY = 0;
-        const modal = document.getElementById("mediaModal");
-        const viewer = document.getElementById("modalViewer");
-        const item = mediaList[index];
-        
-        // Thêm loop và style fit
+    currentMediaIndex = index; scale = 1; posX = 0; posY = 0;
+    const modal = document.getElementById("mediaModal");
+    const viewer = document.getElementById("modalViewer");
+    const item = mediaList[index];
+    
+    // Logic: Nếu mode là 'audio', bất kể file gốc là gì, chỉ dùng thẻ <audio>
+    if (item.mode === 'audio') {
+        viewer.innerHTML = `<audio src="${item.url}" controls autoplay style="width: 80%;"></audio>`;
+    } else {
+        // Nếu là 'normal', giữ nguyên logic cũ của bạn
         const baseStyle = 'max-width: 100vw; max-height: 100vh; object-fit: contain; cursor: grab;';
         viewer.innerHTML = item.type.includes("image") ? 
             `<img src="${item.url}" id="viewEl" style="${baseStyle}">` : 
             `<video src="${item.url}" id="viewEl" controls autoplay loop style="${baseStyle}"></video>`;
-            
-        modal.style.display = "flex";
+    }
+    
+    modal.style.display = "flex";
+    // ... giữ nguyên phần xử lý kéo thả (onmousedown, onmousemove...) phía dưới ...
+}
         
         const viewEl = document.getElementById("viewEl");
         viewEl.style.transform = `scale(1) translate(0px, 0px)`;
