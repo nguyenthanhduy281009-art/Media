@@ -121,7 +121,7 @@ function loadAudioFiles() {
         
         // Tạo HTML bao gồm tên bài và nút xóa
         div.innerHTML = `
-            <span onclick="playAudio(${mediaList.indexOf(item)})" style="cursor:pointer; flex-grow:1;">
+            <span onclick="playAudio(${index})" style="cursor:pointer; flex-grow:1;">
                 🎵 Nhạc ${index + 1}
             </span>
             <button onclick="event.stopPropagation(); deleteFile('${item.key}')" 
@@ -133,12 +133,19 @@ function loadAudioFiles() {
     });
 }
 function playAudio(index) {
-    if (currentAudio.src === audioList[index].url && !currentAudio.paused) {
-        currentAudio.pause(); // Bấm lại để dừng
-    } else {
-        currentAudio.src = audioList[index].url;
-        currentAudio.play();
+    const item = audioList[index];
+
+    // Nếu đang phát đúng file này thì dừng
+    if (currentAudio.src === item.url && !currentAudio.paused) {
+        currentAudio.pause();
+        return;
     }
+
+    // Chỉ dùng audio để phát
+    currentAudio.src = item.url;
+    currentAudio.play().catch(() => {
+        console.log("File này không có âm thanh.");
+    });
 }
 
 // Phát liên tục (tự động chuyển bài)
