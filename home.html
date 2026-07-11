@@ -286,11 +286,19 @@ function uploadFile(mode) {
     }
 
     function changeMedia(dir) {
+    do {
         currentMediaIndex += dir;
-        if (currentMediaIndex >= mediaList.length) currentMediaIndex = 0;
-        if (currentMediaIndex < 0) currentMediaIndex = mediaList.length - 1;
-        openModalAtIndex(currentMediaIndex);
-    }
+
+        if (currentMediaIndex >= mediaList.length)
+            currentMediaIndex = 0;
+
+        if (currentMediaIndex < 0)
+            currentMediaIndex = mediaList.length - 1;
+
+    } while (mediaList[currentMediaIndex].mode === "audio");
+
+    openModalAtIndex(currentMediaIndex);
+}
 
     function closeModal() { document.getElementById("mediaModal").style.display = "none"; }
 
