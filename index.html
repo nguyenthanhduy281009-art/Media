@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#101828">
+  <title>MediaVault — Xác thực</title>
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+  <style>
+    :root{--ink:#101828;--muted:#667085;--line:#d0d5dd;--primary:#7f56d9;--danger:#d92d20}*{box-sizing:border-box}body{margin:0;min-height:100vh;display:grid;place-items:center;padding:20px;background:radial-gradient(circle at 10% 10%,#e9d7fe,transparent 35%),linear-gradient(135deg,#f8faff,#eef2ff);font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;color:var(--ink)}.auth-card{width:min(100%,420px);padding:36px;border:1px solid rgba(255,255,255,.8);border-radius:24px;background:rgba(255,255,255,.92);box-shadow:0 24px 60px rgba(16,24,40,.12)}.brand{text-align:center}.brand-mark{width:54px;height:54px;margin:0 auto 14px;display:grid;place-items:center;border-radius:17px;color:#fff;font-size:24px;font-weight:900;background:linear-gradient(135deg,#7f56d9,#f04438)}h1{font-size:28px;margin:0}#title{font-size:16px;color:var(--muted);font-weight:500;margin:7px 0 28px}.field{margin-bottom:15px}.field label{display:block;font-size:13px;font-weight:700;margin-bottom:7px}.input-wrap{position:relative}.field input{width:100%;padding:12px 13px;border:1px solid var(--line);border-radius:11px;outline:0;color:var(--ink);background:#fff}.field input:focus{border-color:var(--primary);box-shadow:0 0 0 3px #ede9fe}.input-wrap input{padding-right:62px}.show-btn{position:absolute;right:7px;top:7px;border:0;border-radius:7px;padding:6px 8px;color:var(--primary);background:#f4f3ff;font-size:11px;font-weight:800}.forgot{display:block;text-align:right;margin:-4px 0 18px;color:var(--primary);font-size:12px;text-decoration:none;cursor:pointer}.main-btn{width:100%;border:0;border-radius:11px;padding:13px;color:#fff;background:var(--primary);font-weight:800;transition:.2s}.main-btn:hover{background:#6941c6;transform:translateY(-1px)}.main-btn:disabled{opacity:.6;cursor:not-allowed;transform:none}.message{min-height:20px;margin-top:13px;text-align:center;color:var(--danger);font-size:13px}.switch{margin-top:22px;text-align:center;color:var(--muted);font-size:13px}.switch button{border:0;padding:0;color:var(--primary);background:transparent;font-weight:800}.note{margin-top:24px;text-align:center;color:#98a2b3;font-size:11px;line-height:1.5}@media(max-width:450px){.auth-card{padding:28px 20px}}
+  </style>
+</head>
+<body>
+  <main class="auth-card">
+    <div class="brand"><div class="brand-mark">M</div><h1>MediaVault</h1><div id="title">Đăng nhập để mở thư viện</div></div>
+    <form id="authForm" novalidate>
+      <div class="field"><label for="email">Email</label><input id="email" type="email" autocomplete="email" placeholder="you@example.com" required></div>
+      <div class="field"><label for="pass">Mật khẩu</label><div class="input-wrap"><input id="pass" type="password" autocomplete="current-password" minlength="6" placeholder="Tối thiểu 6 ký tự" required><button class="show-btn" id="showPass" type="button">HIỆN</button></div></div>
+      <a class="forgot" id="forgot" href="#">Quên mật khẩu?</a>
+      <button class="main-btn" id="submitBtn" type="submit">Đăng nhập</button>
+      <div class="message" id="message" role="alert" aria-live="polite"></div>
+    </form>
+    <div class="switch"><span id="switchLabel">Chưa có tài khoản?</span> <button id="switchBtn" type="button">Đăng ký ngay</button></div>
+    <div class="note">Tệp của bạn được phân tách theo tài khoản Firebase.</div>
+  </main>
+<script>
+  const firebaseConfig={apiKey:"AIzaSyCmLLI3wHywsLB33QmJDSgUzQcfS3GJgso",authDomain:"haha-ba0bc.firebaseapp.com",projectId:"haha-ba0bc",storageBucket:"haha-ba0bc.firebasestorage.app",messagingSenderId:"748739861694",appId:"1:748739861694:web:492d2a164fec150840d2ef",measurementId:"G-DFQ8DYRZ1G",databaseURL:"https://haha-ba0bc-default-rtdb.asia-southeast1.firebasedatabase.app"};
+  if(!firebase.apps.length)firebase.initializeApp(firebaseConfig);let isLogin=true;const $=id=>document.getElementById(id),message=text=>$("message").textContent=text;
+  firebase.auth().onAuthStateChanged(user=>{if(user)location.replace("home.html")});
+  $("showPass").onclick=()=>{const input=$("pass"),visible=input.type==="text";input.type=visible?"password":"text";$("showPass").textContent=visible?"HIỆN":"ẨN"};
+  $("switchBtn").onclick=()=>{isLogin=!isLogin;$("title").textContent=isLogin?"Đăng nhập để mở thư viện":"Tạo tài khoản mới để bắt đầu";$("submitBtn").textContent=isLogin?"Đăng nhập":"Đăng ký";$("switchLabel").textContent=isLogin?"Chưa có tài khoản?":"Đã có tài khoản?";$("switchBtn").textContent=isLogin?"Đăng ký ngay":"Đăng nhập";$("pass").autocomplete=isLogin?"current-password":"new-password";message("")};
+  $("forgot").onclick=async e=>{e.preventDefault();const email=$("email").value.trim();if(!email)return message("Vui lòng nhập email trước.");try{await firebase.auth().sendPasswordResetEmail(email);message("Đã gửi email đặt lại mật khẩu. Hãy kiểm tra hộp thư.")}catch(err){message(formatError(err))}};
+  $("authForm").onsubmit=async e=>{e.preventDefault();const email=$("email").value.trim(),pass=$("pass").value,button=$("submitBtn");if(!email||!/^\S+@\S+\.\S+$/.test(email))return message("Vui lòng nhập email hợp lệ.");if(pass.length<6)return message("Mật khẩu cần có ít nhất 6 ký tự.");button.disabled=true;message("Đang xử lý…");try{if(isLogin){await firebase.auth().signInWithEmailAndPassword(email,pass);location.replace("home.html")}else{const result=await firebase.auth().createUserWithEmailAndPassword(email,pass);await firebase.database().ref(`users/${result.user.uid}`).set({email,createdAt:firebase.database.ServerValue.TIMESTAMP});message("Tạo tài khoản thành công. Bạn có thể sử dụng thư viện ngay.");setTimeout(()=>$("switchBtn").click(),900)}}catch(err){message(formatError(err))}finally{button.disabled=false}};
+  function formatError(err){const map={"auth/invalid-email":"Email không hợp lệ.","auth/user-not-found":"Không tìm thấy tài khoản này.","auth/wrong-password":"Mật khẩu không chính xác.","auth/email-already-in-use":"Email này đã được đăng ký.","auth/weak-password":"Mật khẩu quá yếu.","auth/too-many-requests":"Có quá nhiều lần thử. Vui lòng chờ một lát."};return map[err.code]||"Có lỗi xảy ra. Vui lòng thử lại."}
+</script>
+</body>
+</html>
