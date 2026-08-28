@@ -1,0 +1,312 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#101828">
+  <title>MediaVault — Xác thực</title>
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+  <style>
+    :root {
+      --ink: #101828;
+      --muted: #667085;
+      --line: #d0d5dd;
+      --primary: #7f56d9;
+      --primary-dark: #6941c6;
+      --danger: #d92d20;
+      --success: #039855;
+      --radius: 16px;
+    }
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      padding: 20px;
+      background: radial-gradient(circle at 10% 10%, #e9d7fe, transparent 35%), linear-gradient(135deg, #f8faff, #eef2ff);
+      font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      color: var(--ink);
+    }
+    .auth-card {
+      width: min(100%, 420px);
+      padding: 40px;
+      border: 1px solid rgba(255, 255, 255, 0.8);
+      border-radius: 24px;
+      background: rgba(255, 255, 255, 0.95);
+      box-shadow: 0 24px 60px rgba(16, 24, 40, 0.12);
+      backdrop-filter: blur(10px);
+    }
+    .brand { text-align: center; margin-bottom: 32px; }
+    .brand-mark {
+      width: 56px;
+      height: 56px;
+      margin: 0 auto 16px;
+      display: grid;
+      place-items: center;
+      border-radius: 16px;
+      color: #fff;
+      font-size: 26px;
+      font-weight: 900;
+      background: linear-gradient(135deg, #7f56d9, #f04438);
+      box-shadow: 0 8px 16px rgba(127, 86, 217, 0.3);
+    }
+    h1 { font-size: 28px; margin: 0; font-weight: 800; letter-spacing: -0.02em; }
+    #title { font-size: 15px; color: var(--muted); font-weight: 500; margin-top: 8px; }
+    .field { margin-bottom: 20px; }
+    .field label { display: block; font-size: 14px; font-weight: 600; margin-bottom: 6px; }
+    .input-wrap { position: relative; }
+    .field input {
+      width: 100%;
+      padding: 12px 14px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      outline: 0;
+      color: var(--ink);
+      background: #fff;
+      font-size: 16px;
+      transition: all 0.2s;
+    }
+    .field input:focus {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 4px rgba(127, 86, 217, 0.1);
+    }
+    .input-wrap input { padding-right: 65px; }
+    .show-btn {
+      position: absolute;
+      right: 8px;
+      top: 50%;
+      transform: translateY(-50%);
+      border: 0;
+      border-radius: 8px;
+      padding: 6px 10px;
+      color: var(--primary);
+      background: #f4f3ff;
+      font-size: 11px;
+      font-weight: 800;
+      cursor: pointer;
+    }
+    .show-btn:hover { background: #ebe9fe; }
+    .forgot {
+      display: block;
+      text-align: right;
+      margin: -12px 0 24px;
+      color: var(--primary);
+      font-size: 13px;
+      font-weight: 600;
+      text-decoration: none;
+      cursor: pointer;
+    }
+    .forgot:hover { text-decoration: underline; }
+    .main-btn {
+      width: 100%;
+      border: 0;
+      border-radius: 12px;
+      padding: 14px;
+      color: #fff;
+      background: var(--primary);
+      font-weight: 700;
+      font-size: 16px;
+      transition: all 0.2s;
+      cursor: pointer;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 8px;
+    }
+    .main-btn:hover { background: var(--primary-dark); transform: translateY(-1px); box-shadow: 0 4px 12px rgba(127, 86, 217, 0.2); }
+    .main-btn:active { transform: translateY(0); }
+    .main-btn:disabled { opacity: 0.7; cursor: not-allowed; transform: none; }
+    .message {
+      min-height: 20px;
+      margin-top: 16px;
+      text-align: center;
+      font-size: 14px;
+      line-height: 1.4;
+    }
+    .message.error { color: var(--danger); }
+    .message.success { color: var(--success); }
+    .switch { margin-top: 24px; text-align: center; color: var(--muted); font-size: 14px; }
+    .switch button {
+      border: 0;
+      padding: 0;
+      color: var(--primary);
+      background: transparent;
+      font-weight: 700;
+      cursor: pointer;
+      margin-left: 4px;
+    }
+    .switch button:hover { text-decoration: underline; }
+    .note { margin-top: 32px; text-align: center; color: #98a2b3; font-size: 12px; line-height: 1.5; }
+    
+    /* Loading Spinner */
+    .spinner {
+      width: 18px;
+      height: 18px;
+      border: 2px solid rgba(255,255,255,0.3);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      display: none;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .loading .spinner { display: block; }
+    .loading .btn-text { display: none; }
+
+    @media (max-width: 450px) {
+      .auth-card { padding: 32px 24px; border-radius: 0; width: 100vw; height: 100vh; border: 0; display: flex; flex-direction: column; justify-content: center; }
+    }
+  </style>
+</head>
+<body>
+  <main class="auth-card">
+    <div class="brand">
+      <div class="brand-mark">M</div>
+      <h1>MediaVault</h1>
+      <div id="title">Chào mừng trở lại! Đăng nhập ngay</div>
+    </div>
+    
+    <form id="authForm" novalidate>
+      <div class="field">
+        <label for="email">Email</label>
+        <input id="email" type="email" autocomplete="email" placeholder="ten@vidu.com" required>
+      </div>
+      
+      <div class="field">
+        <label for="pass">Mật khẩu</label>
+        <div class="input-wrap">
+          <input id="pass" type="password" autocomplete="current-password" minlength="6" placeholder="Tối thiểu 6 ký tự" required>
+          <button class="show-btn" id="showPass" type="button">HIỆN</button>
+        </div>
+      </div>
+      
+      <a class="forgot" id="forgot" href="#">Quên mật khẩu?</a>
+      
+      <button class="main-btn" id="submitBtn" type="submit">
+        <span class="spinner"></span>
+        <span class="btn-text">Đăng nhập</span>
+      </button>
+      
+      <div class="message" id="message" role="alert" aria-live="polite"></div>
+    </form>
+    
+    <div class="switch">
+      <span id="switchLabel">Chưa có tài khoản?</span>
+      <button id="switchBtn" type="button">Đăng ký ngay</button>
+    </div>
+    
+    <div class="note">Dữ liệu được bảo vệ và mã hóa theo từng tài khoản cá nhân.</div>
+  </main>
+
+<script>
+  const firebaseConfig = {
+    apiKey: "AIzaSyCmLLI3wHywsLB33QmJDSgUzQcfS3GJgso",
+    authDomain: "haha-ba0bc.firebaseapp.com",
+    projectId: "haha-ba0bc",
+    storageBucket: "haha-ba0bc.firebasestorage.app",
+    messagingSenderId: "748739861694",
+    appId: "1:748739861694:web:492d2a164fec150840d2ef",
+    measurementId: "G-DFQ8DYRZ1G",
+    databaseURL: "https://haha-ba0bc-default-rtdb.asia-southeast1.firebasedatabase.app"
+  };
+
+  if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+  
+  const auth = firebase.auth();
+  const db = firebase.database();
+  let isLogin = true;
+
+  const $ = id => document.getElementById(id);
+  const showMessage = (text, type = 'error') => {
+    const el = $("message");
+    el.textContent = text;
+    el.className = `message ${type}`;
+  };
+
+  auth.onAuthStateChanged(user => {
+    if (user) location.replace("home.html");
+  });
+
+  $("showPass").onclick = () => {
+    const input = $("pass");
+    const isVisible = input.type === "text";
+    input.type = isVisible ? "password" : "text";
+    $("showPass").textContent = isVisible ? "HIỆN" : "ẨN";
+  };
+
+  $("switchBtn").onclick = () => {
+    isLogin = !isLogin;
+    $("title").textContent = isLogin ? "Chào mừng trở lại! Đăng nhập ngay" : "Bắt đầu hành trình lưu trữ của bạn";
+    $("submitBtn").querySelector(".btn-text").textContent = isLogin ? "Đăng nhập" : "Tạo tài khoản";
+    $("switchLabel").textContent = isLogin ? "Chưa có tài khoản?" : "Đã có tài khoản?";
+    $("switchBtn").textContent = isLogin ? "Đăng ký ngay" : "Đăng nhập";
+    $("pass").autocomplete = isLogin ? "current-password" : "new-password";
+    showMessage("");
+  };
+
+  $("forgot").onclick = async e => {
+    e.preventDefault();
+    const email = $("email").value.trim();
+    if (!email) return showMessage("Vui lòng nhập địa chỉ email để đặt lại mật khẩu.");
+    
+    try {
+      await auth.sendPasswordResetEmail(email);
+      showMessage("Email hướng dẫn đặt lại mật khẩu đã được gửi. Hãy kiểm tra hộp thư của bạn.", "success");
+    } catch (err) {
+      showMessage(formatError(err));
+    }
+  };
+
+  $("authForm").onsubmit = async e => {
+    e.preventDefault();
+    const email = $("email").value.trim();
+    const pass = $("pass").value;
+    const btn = $("submitBtn");
+
+    if (!email || !/^\S+@\S+\.\S+$/.test(email)) return showMessage("Vui lòng nhập một địa chỉ email hợp lệ.");
+    if (pass.length < 6) return showMessage("Mật khẩu phải có ít nhất 6 ký tự.");
+
+    btn.disabled = true;
+    btn.classList.add("loading");
+    showMessage("");
+
+    try {
+      if (isLogin) {
+        await auth.signInWithEmailAndPassword(email, pass);
+        // Chuyển hướng được xử lý bởi onAuthStateChanged
+      } else {
+        const cred = await auth.createUserWithEmailAndPassword(email, pass);
+        await db.ref(`users/${cred.user.uid}`).set({
+          email,
+          createdAt: firebase.database.ServerValue.TIMESTAMP
+        });
+        showMessage("Đăng ký thành công! Đang chuẩn bị thư viện...", "success");
+        setTimeout(() => location.replace("home.html"), 1000);
+      }
+    } catch (err) {
+      showMessage(formatError(err));
+      btn.disabled = false;
+      btn.classList.remove("loading");
+    }
+  };
+
+  function formatError(err) {
+    console.error("Auth Error:", err);
+    const codes = {
+      "auth/invalid-email": "Email không đúng định dạng.",
+      "auth/user-disabled": "Tài khoản này đã bị khóa.",
+      "auth/user-not-found": "Không tìm thấy tài khoản với email này.",
+      "auth/wrong-password": "Mật khẩu không chính xác.",
+      "auth/email-already-in-use": "Email này đã được sử dụng bởi một tài khoản khác.",
+      "auth/operation-not-allowed": "Đăng ký bằng email hiện không được phép.",
+      "auth/weak-password": "Mật khẩu quá yếu, vui lòng chọn mật khẩu mạnh hơn.",
+      "auth/too-many-requests": "Quá nhiều lần thử thất bại. Vui lòng quay lại sau ít phút.",
+      "auth/network-request-failed": "Lỗi kết nối mạng. Vui lòng kiểm tra lại đường truyền."
+    };
+    return codes[err.code] || "Đã xảy ra lỗi không xác định. Vui lòng thử lại sau.";
+  }
+</script>
+</body>
+</html>
